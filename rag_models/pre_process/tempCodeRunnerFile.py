@@ -1,0 +1,1 @@
+structure_pattern = r'^\s*(?:CHƯƠNG|Chương|CHAPTER|Chapter|PHẦN|Phần|\d+(?:\.\d+)*\b|[-*+•])'

@@ -1,0 +1,122 @@
+[
+{
+"id": 1,
+"user_input": "Nguồn gốc của Nhà nước được học thuyết Mác - Lênin giải thích như thế nào?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Theo học thuyết Mác - Lênin, Nhà nước không phải hiện tượng vĩnh cửu mà là phạm trù lịch sử. Tiền đề kinh tế cho sự ra đời của Nhà nước là chế độ tư hữu tài sản, còn tiền đề xã hội là sự phân hóa xã hội thành các giai cấp có lợi ích đối lập và mâu thuẫn gay gắt không thể điều hòa.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 2,
+"user_input": "Định nghĩa Nhà nước là gì?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Nhà nước là một tổ chức đặc biệt của quyền lực chính trị, một bộ máy chuyên làm nhiệm vụ cưỡng chế và thực hiện các chức năng quản lý đặc biệt nhằm duy trì trật tự xã hội, thực hiện mục đích bảo vệ địa vị của giai cấp thống trị.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 3,
+"user_input": "Nêu 5 dấu hiệu đặc trưng của Nhà nước.",
+"retrieved_contexts": [],
+"response": "",
+"reference": "5 dấu hiệu đặc trưng của Nhà nước gồm: (1) Thiết lập quyền lực công cộng đặc biệt; (2) Quản lý dân cư theo đơn vị hành chính lãnh thổ; (3) Có chủ quyền quốc gia; (4) Ban hành pháp luật và quản lý bắt buộc với công dân; (5) Quy định và thu các loại thuế bắt buộc.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 4,
+"user_input": "Bản chất của Nhà nước thể hiện ở những phương diện nào?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Bản chất Nhà nước thể hiện qua hai phương diện: Tính giai cấp (là công cụ duy trì sự thống trị và trấn áp giai cấp) và Vai trò xã hội (giải quyết công việc chung, phục vụ lợi ích cộng đồng).",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 5,
+"user_input": "Trong lịch sử loài người có những kiểu nhà nước nào?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Lịch sử loài người đã trải qua 4 kiểu nhà nước: Kiểu nhà nước chủ nô, kiểu nhà nước phong kiến, kiểu nhà nước tư sản và kiểu nhà nước xã hội chủ nghĩa.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 6,
+"user_input": "Hình thức nhà nước gồm những yếu tố cấu thành nào?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Hình thức nhà nước được cấu thành bởi 3 yếu tố: Hình thức chính thể (chính thể quân chủ và chính thể cộng hòa), Hình thức cấu trúc (nhà nước đơn nhất và nhà nước liên bang) và Chế độ chính trị (dân chủ hoặc phản dân chủ).",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 7,
+"user_input": "Chức năng của Nhà nước được phân loại như thế nào?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Chức năng của nhà nước được phân thành hai nhóm chính là chức năng đối nội và chức năng đối ngoại, có mối quan hệ mật thiết, hỗ trợ lẫn nhau.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 8,
+"user_input": "Bản chất của Nhà nước Cộng hòa xã hội chủ nghĩa Việt Nam được Hiến pháp 2013 quy định ra sao?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Nhà nước CHXHCN Việt Nam là nhà nước pháp quyền XHCN của Nhân dân, do Nhân dân, vì Nhân dân; tất cả quyền lực nhà nước thuộc về Nhân dân mà nền tảng là liên minh giữa giai cấp công nhân với giai cấp nông dân và đội ngũ trí thức.",
+"category": "Luật Hiến pháp"
+},
+{
+"id": 9,
+"user_input": "Khái niệm Pháp luật là gì?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Pháp luật là hệ thống các quy tắc xử sự có tính bắt buộc chung, do Nhà nước ban hành hoặc thừa nhận, thể hiện ý chí của Nhà nước và được Nhà nước bảo đảm thực hiện nhằm điều chỉnh các quan hệ xã hội.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 10,
+"user_input": "Các thuộc tính cơ bản của pháp luật bao gồm những gì?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Pháp luật có 3 thuộc tính cơ bản: Tính quy phạm phổ biến (bắt buộc chung), Tính xác định chặt chẽ về mặt hình thức và Tính được bảo đảm thực hiện bằng Nhà nước.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 11,
+"user_input": "Pháp luật có những chức năng cơ bản nào?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Pháp luật có 3 chức năng cơ bản: Chức năng điều chỉnh các quan hệ xã hội, Chức năng bảo vệ các quan hệ xã hội, và Chức năng giáo dục ý thức con người.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 12,
+"user_input": "Nêu vai trò của pháp luật Việt Nam trong giai đoạn hiện nay.",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Pháp luật Việt Nam có vai trò: là công cụ thực hiện đường lối chính sách của Đảng, là công cụ thực hiện quyền làm chủ của nhân dân lao động, và là công cụ quản lý nhà nước hữu hiệu nhất.",
+"category": "Lý luận về Nhà nước và Pháp luật"
+},
+{
+"id": 13,
+"user_input": "Khái niệm Quy phạm pháp luật là gì?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Quy phạm pháp luật là quy tắc xử sự có tính khuôn mẫu, bắt buộc chung, do Nhà nước ban hành/thừa nhận và bảo đảm thực hiện để điều chỉnh các quan hệ xã hội.",
+"category": "Quy phạm & Văn bản QPPL"
+},
+{
+"id": 14,
+"user_input": "Cấu trúc của một quy phạm pháp luật gồm mấy bộ phận?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Cấu trúc cơ bản của một quy phạm pháp luật gồm 3 bộ phận: Giả định (xác định hoàn cảnh/chủ thể), Quy định (nêu quy tắc xử sự), và Chế tài (biện pháp xử lý bất lợi).",
+"category": "Quy phạm & Văn bản QPPL"
+},
+{
+"id": 15,
+"user_input": "Bộ phận Giả định trong quy phạm pháp luật trả lời cho những câu hỏi nào?",
+"retrieved_contexts": [],
+"response": "",
+"reference": "Bộ phận Giả định trả lời cho các câu hỏi: Chủ thể nào? Khi nào? Trong hoàn cảnh, điều kiện thực tế nào?",
+"category": "Quy phạm & Văn bản QPPL"
+}
+]
