@@ -12,6 +12,7 @@ from ragas.metrics import (
 )
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from langchain_ollama import ChatOllama
 from langchain_community.embeddings import SentenceTransformerEmbeddings
@@ -33,12 +34,19 @@ evaluator_llm = ChatOllama(
     model = "qwen2.5:7b-instruct",
     temperature=0.0,
 )
-"""
+
 
 evaluator_llm = ChatGroq(
-    model_name="llama-3.3-70b-versatile",
+    model_name="llama-3.1-8b-instant",
     api_key=os.getenv("GROQ_API_KEY"),
     temperature=0.0,
+)
+"""
+
+evaluator_llm = ChatGoogleGenerativeAI(
+    model = "gemini-flash-lite-latest",
+    google_api_key = "AQ.Ab8RN6LsypqZy5RPP-ME-b03_gZt7zEo2Nk7sPCRuSuHMA3YLQ",
+    temperature = 0.0
 )
 
 evaluator_embeddings = SentenceTransformerEmbeddings(
@@ -96,14 +104,19 @@ for metric in metrics:
     if hasattr(metric, "embeddings"):
         metric.embeddings = ragas_embeddings
 
+final_result = []
+
 print("Đang chạy Ragas Evaluation...")
-results = evaluate(
-    dataset=eval_dataset,
-    metrics=metrics,
-    llm=ragas_llm,
-    embeddings=ragas_embeddings,
-    batch_size=2,  # Số lượng luồng song song để tăng tốc độ đánh giá
-)
+for data in data_samples:
+    eval_dataset = Dataset.from_list([data])
+    results = evaluate(
+        dataset=eval_dataset,
+        metrics=metrics,
+        llm=ragas_llm,
+        embeddings=ragas_embeddings,  # Số lượng luồng song song để tăng tốc độ đánh giá
+    )
+    final_result.append(results)
+    sleep(60)
 
 # ==========================================
 # 4. Xuất Kết Quả
@@ -112,9 +125,10 @@ print("\n=== KẾT QUẢ TỔNG QUAN ===")
 print(results)
 
 # Chuyển sang Pandas DataFrame để xem chi tiết từng câu
-df_results = results.to_pandas()
-print("\n=== CHI TIẾT TỪNG TEST CASE ===")
-print(df_results[["user_input", "faithfulness", "answer_correctness", "context_precision", "context_recall"]])
+for results in final_result:
+    df_results = results.to_pandas()
+    print("\n=== CHI TIẾT TỪNG TEST CASE ===")
+    print(df_results[["user_input", "faithfulness", "answer_correctness", "context_precision", "context_recall"]].to_string(index=False))
 
 # Lưu ra file CSV phục vụ theo dõi (Tracking / Baseline)
-df_results.to_csv("rag_eval/evals/experiment/ragas_bm25_eval_report.csv", index=False)
+#df_results.to_csv("rag_eval/evals/experiment/ragas_bm25_eval_report.csv", index=False)

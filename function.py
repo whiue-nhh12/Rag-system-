@@ -16,7 +16,6 @@ raw_text = "                              ".join([p.page_content for p in pages]
 #full_text = BasePreProcess.clean_text(full_text)  # Tiền xử lý văn bản thô
 print(repr(raw_text)) # Dùng repr() để hiện rõ mọi ký tự ẩn như \n, \t
   # In ra metadata của trang 50
-  """
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
 from time import time
@@ -43,3 +42,61 @@ need_time = last_time - first_time
 print("Prompt:", prompt)
 print("Response:", evaluator_llm_response.content)
 print("Time taken:", need_time, "seconds")
+"""
+
+import os
+
+# Tắt TorchDynamo/Inductor để tránh tìm kiếm compiler C++ (cl.exe)
+os.environ["TORCHINDUCTOR_DISABLE"] = "1"
+os.environ["TORCHDYNAMO_DISABLE"] = "1"
+
+import torch
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling_core.types.doc import TextItem, TableItem
+
+# Cấu hình pipeline an toàn cho môi trường Windows
+pipeline_options = PdfPipelineOptions()
+pipeline_options.do_ocr = False
+
+converter = DocumentConverter(
+    format_options={
+        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+    }
+)
+source = "rag_models/data/gtpldc.pdf"
+result = converter.convert(source)
+doc = result.document
+
+print(doc.export_to_markdown()[:10000])
+
+# 3. Duyệt toàn bộ các node trong cây dữ liệu
+print(f"Tổng số phần tử nhận diện: {len(list(doc.iterate_items()))}\n")
+"""
+for item, level in doc.iterate_items():
+    # Lấy thông tin bounding box và số trang
+    bbox_info = ""
+    if item.prov:
+        prov = item.prov[0]
+        bbox_info = f"[Trang {prov.page_no} | BBox: ({prov.bbox.l:.1f}, {prov.bbox.t:.1f}, {prov.bbox.r:.1f}, {prov.bbox.b:.1f})]"
+
+    # Phân nhánh xử lý theo kiểu Node
+    if isinstance(item, TextItem):
+        # TextItem: lấy nhãn (paragraph, section_header, list_item...)
+        label = item.label
+        text_preview = item.text.strip().replace("\n", " ")
+        if len(text_preview) > 60:
+            text_preview = text_preview[:60] + "..."
+        print(f"[TEXT - {label.upper()}] {bbox_info}")
+        print(f"  -> Content: {text_preview}")
+
+    elif isinstance(item, TableItem):
+        # TableItem: xuất dữ liệu sang Markdown hoặc Pandas DataFrame
+        df = item.export_to_dataframe()
+        print(f"\n[TABLE DETECTED] {bbox_info}")
+        print(f"  -> Kích thước: {df.shape[0]} hàng x {df.shape[1]} cột")
+        print("  -> Dữ liệu bảng (Markdown representation):")
+        print(item.export_to_markdown())
+        print("-" * 50)
+"""

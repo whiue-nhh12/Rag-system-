@@ -17,6 +17,8 @@ import numpy as np
 from langchain_core.documents import Document
 import pickle
 import time
+from rag_models.retrival.reranker import RerankerSystem
+from rag_models.prompt.phapluat_prompt import LawPrompt
 
 load_dotenv()
 
@@ -108,13 +110,10 @@ def run_rag(file_path: Optional[str] = None, query: Optional[str] = None) -> Non
         if idx == 244:
             print(f"\n--- Nội dung trang {idx + 1} trước khi tiền xử lý ---\n{doc.page_content}...\n")
         doc.page_content = base_preprocessor.clean(doc.page_content)
-        if idx in [243, 244, 245, 246]: 
-             # Chỉ tiền xử lý các trang từ 243 đến 246
-             print(f" status : {base_preprocessor._is_garbage_zone} , {base_preprocessor._is_middle_garbage_zone}")
-             print(f"\n--- Nội dung trang {idx + 1} sau khi tiền xử lý ---\n{doc.page_content}...\n")
+
 
     print(f"Đã load {len(documents)} tài liệu")
-    chunker = RecursiveStructuralChunker(max_chunk_size=1000, chunk_overlap=300)
+    chunker = RecursiveStructuralChunker(max_chunk_size=1200, chunk_overlap=100)
     chunks = chunker.chunk(documents)
     bm25_service = BM25Service()
     bm25_service.build_and_save(chunks)
@@ -162,27 +161,24 @@ def ask(query: str,llm: Optional[object] = None, k: int = 10) -> str:
         if key in lowerquery:
             filterlist.append(value)
     print(f"\nFilter list: {filterlist if filterlist else 'Không có filter'}")
-    #hybrid_retriever = HybridRetriever(semantic_search_fn=retriever.retrieve_with_scores, keyword_search_fn=BM25Service().keyword_search)
+    hybrid_retriever = HybridRetriever(semantic_search_fn=retriever.retrieve_with_scores, keyword_search_fn=BM25Service().keyword_search)
     if llm is None:
                 llm = GeminiLLM(api_key=os.getenv("GEMINI_API_KEY"),model_name="gemini-flash-lite-latest")
                 print(llm.model_name)
-    #queryhype = llm.hyde_generate(query=query)
+    queryhype = llm.hyde_generate(query=query)
     #print(f"\nQuery hyde: {queryhype}")
-    results = retriever.retrieve_with_scores(query=query, k=20 , filter={"title": {"$in": filterlist}} if filterlist else None)
+    results = hybrid_retriever.retrieve_with_scores(query=queryhype, k=20)
+    content = [result[0].page_content for result in results]
+    reranker = RerankerSystem.get_instance()
+    results =  reranker.rerank(query,content,top_k=10)
     print(f"\nSố document tìm được: {len(results)}")
     if not results:
         raise ValueError("Không tìm thấy document phù hợp")
     context = "\n\n".join(
-        f"[Document {idx}] {result[0].page_content} and {result[1]:.4f}"
+        f"[Document {idx}] {result[0]} and {result[1]:.4f}"
         for idx, result in enumerate(results, start=1)
     )
-    prompt = (
-        "Bạn là trợ lý trả lời dựa trên các tài liệu sau.\n"
-        f"Câu hỏi: {query}\n\n"
-        "Tài liệu liên quan:\n"
-        f"{context}\n\n"
-        "Hãy trả lời ngắn gọn, chính xác và chỉ dựa trên nội dung trong tài liệu trên."
-    )
+    prompt = LawPrompt().build_prompt(user_query=query,context=context)
     print(f"\nPrompt gửi cho LLM:\n{prompt}\n")
     #api_key = os.getenv("GEMINI_API_KEY")
     #print(f"Using Gemini API Key: {api_key}")
@@ -220,21 +216,18 @@ def ask_to_test(query: str,llm: Optional[object] = None, k: int = 10) -> str:
                 print(llm.model_name)
     queryhype = llm.hyde_generate(query=query)
     #print(f"\nQuery hyde: {queryhype}")
-    results = hybrid_retriever.retrieve_with_scores(query=queryhype, k=8 , filter={"title": {"$in": filterlist}} if filterlist else None)
+    results = hybrid_retriever.retrieve_with_scores(query=queryhype, k=20)
+    content = [result[0].page_content for result in results]
+    reranker = RerankerSystem.get_instance()
+    results =  reranker.rerank(query,content,top_k=10)
     if not results:
         raise ValueError("Không tìm thấy document phù hợp")
-    context_to_test = [result[0].page_content for result in results]
+    context_to_test = [result[0] for result in results]
     context = "\n\n".join(
-        f"[Document {idx}] {result[0].page_content} and {result[1]:.4f}"
+        f"[Document {idx}] {result[0]} and {result[1]:.4f}"
         for idx, result in enumerate(results, start=1)
     )
-    prompt = (
-        "Bạn là trợ lý trả lời dựa trên các tài liệu sau.\n"
-        f"Câu hỏi: {query}\n\n"
-        "Tài liệu liên quan:\n"
-        f"{context}\n\n"
-        "Hãy trả lời ngắn gọn, chính xác và chỉ dựa trên nội dung trong tài liệu trên."
-    )
+    prompt = LawPrompt().build_prompt(user_query=query,context=context)
     #api_key = os.getenv("GEMINI_API_KEY")
     #print(f"Using Gemini API Key: {api_key}")
 
@@ -250,11 +243,14 @@ if __name__ == "__main__":
 
     run_rag(file_path= ROOT/"rag_models"/"data"/"gtpldc.pdf", query=args.query)
     """
-    query ="Cấu trúc của một quy phạm pháp luật gồm mấy bộ phận?"
+    query ="Pháp luật có những chức năng cơ bản nào?"
     answer = ask(query=query)
     print(f"\nCâu hỏi: {query}")
     print(f"Trả lời: {answer}")
-
+    
+    
+    
+    
     
     
 

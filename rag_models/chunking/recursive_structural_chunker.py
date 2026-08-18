@@ -1,12 +1,12 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple,Any
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from .base import BaseChunking
+from rag_models.chunking.base import BaseChunking
 
 title_dictionary = {
     "pháp luật" :"Pháp luật",
@@ -27,6 +27,7 @@ class StructuralBlock:
     chapter: str = ""
     section: str = ""
     subsection: str = ""
+    smaller_subsection : str = ""
     title : Optional[List[str]] = None
     source: Optional[str] = None
     start_page: Optional[int] = None
@@ -52,9 +53,39 @@ class StructuralBlock:
             source_doc_index=source_doc_index if source_doc_index is not None else metadata.get("source_doc_index"),
         )
 
+    def to_document(self, chunk_index: Optional[int] = None) -> Document:
+        """Chuyển đổi StructuralBlock thành Document chuẩn của LangChain."""
+        metadata: Dict[str, Any] = {
+            "source": self.source,
+            "start_page": self.start_page,
+            "end_page": self.end_page,
+            "chapter": self.chapter,
+            "section": self.section,
+            "subsection": self.subsection,
+            "title": self.title,
+            "hierarchy_path": self.hierarchy_path,
+            "source_doc_index": self.source_doc_index,
+        }
+
+        if chunk_index is not None:
+            metadata["chunk_index"] = chunk_index
+
+        doc_id = (
+            f"chunk_{chunk_index}_p{self.start_page or 0}"
+            if chunk_index is not None
+            else None
+        )
+
+        return Document(
+            page_content=self.text,
+            metadata=metadata,
+            id=doc_id,
+        )
+
     def __post_init__(self) -> None:
         parts = [p for p in (self.chapter, self.section, self.subsection) if p]
         self.hierarchy_path = " > ".join(parts) if parts else "root"
+
 
 logger = logging.getLogger(__name__)
 
@@ -70,14 +101,14 @@ class RecursiveStructuralChunker(BaseChunking):
         super().__init__(chunk_size=max_chunk_size, chunk_overlap=chunk_overlap)
         self.max_chunk_size = max_chunk_size
         self.chunk_overlap = chunk_overlap
-    
+        self.chapter_pattern = r"^CHƯƠNG\s+\d+.*"
         # Separators for recursive splitting - ORDERED BY PRIORITY (highest first)
         # Headings have highest priority to maintain document structure
-        self.split_separators = [
-            ("heading_chapter", r"^CHƯƠNG\s+\d+.*"),       # Highest priority
+        self.split_separators = [       # Highest priority
             ("heading_section", r"^\d+\.\d+\s+.*"),         # Mid-high priority
             ("heading_subsection", r"^\d+\.\d+\.\d+\.?\s+.*"), # Mid priority
-            ("bullet", r"^\s*[-*•]\s+"),                    # Lower prior                                  # Last resort
+            ("heading_smaller_subsection", r"^\d+\.\d+\.\d+\.\d+\.?\s+.*")
+                               # Lower prior                                  # Last resort
         ]
 
         self.fallback_splitter = RecursiveCharacterTextSplitter(
@@ -163,11 +194,11 @@ class RecursiveStructuralChunker(BaseChunking):
                         current_buffer.append("")
                     continue
                 # Only detect structural headings here (chapter, section, subsection).
-                heading_level = self._detect_heading_level(line)
-                if heading_level:
+                pattern =  self.chapter_pattern
+                if re.match(pattern,line) :
                     if current_buffer:
                         blocks.append(
-                            self._build_block(
+                            self._build_chapter_block(
                                 current_buffer,
                                 current_metadata,
                                 current_source,
@@ -178,40 +209,21 @@ class RecursiveStructuralChunker(BaseChunking):
                         )
                         current_buffer = []
 
-                    if heading_level == "chapter":
-                        line = line.lower()
-                        topics = []
-                        for key,value in title_dictionary.items():
-                            if key in line:
-                                topics.append(value)
+                    chapter_title = line
+                    lower_line = chapter_title.lower()
+                    topics = []
+                    for key, value in title_dictionary.items():
+                        if key in lower_line:
+                            topics.append(value)
 
-                        current_metadata = {
-                            "chapter": line,
-                            "section": "",
-                            "subsection": "",
-                            "title": topics
-                        }
-                    elif heading_level == "section":
-                        current_metadata["section"] = line
-                        topics = []
-                        for key,value in title_dictionary.items():
-                            if key in line.lower():
-                                topics.append(value)
-                        if topics:
-                            metadatatopics = current_metadata.get("title", [])
-                            current_metadata["title"] = list(set(metadatatopics) & set(topics))
-                        current_metadata["subsection"] = ""
-                    elif heading_level == "subsection":
-                        current_metadata["subsection"] = line
-                        topics = []
-                        for key,value in title_dictionary.items():
-                            if key in line.lower():
-                                topics.append(value)
-                        if topics:
-                            metadatatopics = current_metadata.get("title", [])
-                            current_metadata["title"] = list(set(metadatatopics) & set(topics))
-
-                    current_buffer = [line]
+                    current_metadata = {
+                        "chapter": chapter_title,
+                        "section": "",
+                        "subsection": "",
+                        "smaller_subsection":"",
+                        "title": topics,
+                    }
+                    current_buffer = [chapter_title]
                     current_start_page = page_num
                     current_end_page = page_num
                     current_start_doc_idx = doc_idx
@@ -224,7 +236,7 @@ class RecursiveStructuralChunker(BaseChunking):
 
         if current_buffer:
             blocks.append(
-                self._build_block(
+                self._build_chapter_block(
                     current_buffer,
                     current_metadata,
                     current_source,
@@ -236,7 +248,7 @@ class RecursiveStructuralChunker(BaseChunking):
 
         return blocks
 
-    def _build_block(
+    def _build_chapter_block(
         self,
         buffer_lines: List[str],
         metadata: Dict[str, str],
@@ -268,98 +280,84 @@ class RecursiveStructuralChunker(BaseChunking):
         if self._calculate_text_length(block_text) <= self.max_chunk_size:
             return [
                 self._create_document_chunk(
-                    block_text,
                     block,
                     global_chunk_counter,
                 )
             ]
-        
-        # Use recursive splitting with separators (heading patterns have priority)
-        split_texts = self._recursive_split_text(block_text, self.split_separators)
-        
-        # Merge splits respecting chunk size and overlap
-        merged_chunks = self._merge_splits(split_texts)
-        
+
+        all_chunks = self._recursive_split_text(block, self.split_separators)
+        if not isinstance(all_chunks, list):
+            all_chunks = [all_chunks]
+
         return [
             self._create_document_chunk(
-                piece,
-                block,
+                chunk,
                 global_chunk_counter + offset,
             )
-            for offset, piece in enumerate(merged_chunks)
+            for offset, chunk in enumerate(all_chunks)
         ]
 
     def _recursive_split_text(
-        self, text: str, separators: list
+        self, block: StructuralBlock, separators: list
     ) -> list:
         """
         Recursively split text using separators with heading priority.
         Format: [(separator_type_name, separator_pattern), ...]
         Tries separators in order until finding one that exists in text.
         """
-        final_chunks = []
-        
-        if not separators or not text:
-            return [text] if text else []
-        
+        final_chunks: list[StructuralBlock] = []
+
+        if not separators or not block.text:
+            return [block]
+
         separator_type = None
         separator_pattern = None
         next_separators = []
-        
-        # Find the best separator that exists in the text (first match wins due to priority)
+
         for i, (sep_type, sep_pattern) in enumerate(separators):
-            if sep_pattern == "":  # Empty separator means split by character
+            if sep_pattern is None:
                 separator_type = sep_type
                 separator_pattern = sep_pattern
                 next_separators = []
                 break
-            
-            # Check if separator exists in text
-            if self._separator_exists_in_text(text, sep_pattern):
+
+            if self._separator_exists_in_text(block.text, sep_pattern):
                 separator_type = sep_type
                 separator_pattern = sep_pattern
                 next_separators = separators[i + 1:]
                 break
-        
-        # If no separator found, return text as-is
+
         if separator_pattern is None:
-            return [text] if text else []
-        
-        # Split the text based on separator type
-        if separator_type.startswith("heading_"):
-            # Heading-based splitting
-            splits = self._split_by_heading(text, separator_pattern)
-        elif separator_type == "bullet":
-            # Bullet-based splitting
-            splits = self._split_by_regex(text, separator_pattern)
-        elif separator_pattern == "":
-            # Character-level splitting
-            splits = list(text)
+            return [block]
+
+        if separator_type.startswith("heading_") or separator_type == "bullet":
+            splits = self._split_by_pattern(block, separator_pattern)
         else:
-            # Simple string splitting (paragraph, line, sentence, word)
-            splits = [s for s in text.split(separator_pattern) if s]
-        
-        temp = []
-        
+            split_docs = self.fallback_splitter.split_documents([block.to_document()])
+            splits = [StructuralBlock.from_document(doc) for doc in split_docs]
+
+        temp: list[StructuralBlock] = []
+
         for s in splits:
-            if self._calculate_text_length(s) <= self.max_chunk_size:
+            if self._calculate_text_length(s.text) <= self.max_chunk_size:
                 temp.append(s)
             else:
                 if temp:
-                    final_chunks.extend(self._merge_splits(temp))
+                    final_chunks.extend(temp)
                     temp = []
-                
+
                 if not next_separators:
-                    # No more separators to try, add as-is
                     final_chunks.append(s)
                 else:
-                    # Recursively split with next separator
                     recursive_chunks = self._recursive_split_text(s, next_separators)
-                    final_chunks.extend(recursive_chunks)
-        
+                    if isinstance(recursive_chunks, StructuralBlock):
+                        final_chunks.append(recursive_chunks)
+                    elif isinstance(recursive_chunks, list):
+                        final_chunks.extend(recursive_chunks)
+
         if temp:
-            final_chunks.extend(self._merge_splits(temp))
-        
+            final_chunks.extend(temp)
+
         return final_chunks
 
     def _separator_exists_in_text(self, text: str, separator: str) -> bool:
@@ -374,100 +372,139 @@ class RecursiveStructuralChunker(BaseChunking):
         # For simple string separators
         return separator in text
 
-    def _split_by_heading(self, text: str, pattern: str) -> List[str]:
-        """Split text by heading pattern while preserving headers."""
-        splits = []
-        current_part = []
-        
-        for line in text.splitlines(keepends=False):
-            if re.match(pattern, line):
-                if current_part:
-                    splits.append("\n".join(current_part))
-                current_part = [line]
-            else:
-                current_part.append(line)
-        
-        if current_part:
-            splits.append("\n".join(current_part))
-        
-        return [s for s in splits if s]
-
-    def _split_by_regex(self, text: str, pattern: str) -> List[str]:
-        """Split text using a regex pattern (for bullets) while preserving structure."""
-        splits = []
-        current_part = []
-        
-        for line in text.splitlines(keepends=False):
-            if re.match(pattern, line):
-                if current_part:
-                    splits.append("\n".join(current_part))
-                current_part = [line]
-            else:
-                current_part.append(line)
-        
-        if current_part:
-            splits.append("\n".join(current_part))
-        
-        return [s for s in splits if s]
-
-    def _merge_splits(self, splits: List[str]) -> List[str]:
+    def _build_block(
+    self,
+    texts: List[str],
+    parent_block: StructuralBlock,
+    header_content: str,
+    hierarchy: Dict[str, str],
+) -> StructuralBlock:
         """
-        Merge splits to reach target chunk size while respecting overlap.
-        Inspired by RecursiveCharacterTextSplitter's merge_splits logic.
+        Khởi tạo StructuralBlock con, tự động kế thừa source, pages, 
+        và làm giàu metadata phân cấp từ khối cha.
         """
-        if not splits:
-            return []
-        
-        if len(splits) == 1:
-            return splits
-        
-        # Default separator is double newline for merging
-        separator = "\n\n"
-        merged_chunks = []
-        current_group = []
-        current_length = 0
-        
-        for s in splits:
-            s_length = self._calculate_text_length(s)
-            sep_length = self._calculate_text_length(separator) if current_group else 0
-            
-            # Check if adding this split would exceed max chunk size
-            if current_group and current_length + sep_length + s_length > self.max_chunk_size:
-                # Merge current group and start new one
-                merged = separator.join(current_group)
-                if merged:
-                    merged_chunks.append(merged)
-                current_group = [s]
-                current_length = s_length
+        full_text = "\n".join(texts).strip()
+
+        topics_list = []
+        matched_titles = list(parent_block.title or [])
+        normalized_header = header_content.lower()
+        for key, value in title_dictionary.items():
+            if key in normalized_header:
+                topics_list.append(value)
+        if topics_list:
+            matched_titles = list(set(matched_titles) & set(topics_list))
+
+        section_value = hierarchy.get("section", parent_block.section)
+        subsection_value = hierarchy.get("subsection", parent_block.subsection)
+        smaller_subsection_value = hierarchy.get("smaller_subsection", parent_block.subsection)
+
+        return StructuralBlock(
+            text=full_text,
+            chapter=hierarchy.get("chapter", parent_block.chapter),
+            section=section_value,
+            subsection=subsection_value,
+            smaller_subsection= smaller_subsection_value,
+            title=matched_titles,
+            source=parent_block.source,
+            start_page=parent_block.start_page,
+            end_page=parent_block.end_page,
+            source_doc_index=parent_block.source_doc_index,
+        )
+
+
+    def _split_by_pattern(
+    self, block: StructuralBlock, pattern: str
+) -> List[StructuralBlock]:
+        """
+        Phân tách một StructuralBlock cha thành danh sách các StructuralBlock con
+        dựa trên regex pattern, kế thừa và cập nhật ngữ cảnh phân cấp (hierarchy memory).
+        """
+        all_blocks: List[StructuralBlock] = []
+        current_part: List[str] = []
+
+        # 1. Kế thừa trạng thái phân cấp ban đầu từ khối cha
+        hierarchy_state = {
+            "chapter": block.chapter,
+            "section": block.section,
+            "subsection": block.subsection,
+            "smaller_subsection": block.smaller_subsection,
+        }
+        current_header_content = ""
+
+        for line in (block.text or "").splitlines(keepends=False):
+            stripped_line = line.strip()
+            if not stripped_line:
+                if current_part:
+                    current_part.append("")
+                continue
+
+            # 2. Kiểm tra dòng có khớp với pattern phân cấp đang xét hay không
+            if re.match(pattern, stripped_line):
+                # Đóng gói khối CŨ trước khi chuyển sang header mới
+                if current_part:
+                    content = "\n".join(current_part).strip()
+                    if content:
+                        child_block = self._build_block(
+                            texts=current_part,
+                            parent_block=block,
+                            header_content=current_header_content,
+                            hierarchy=dict(hierarchy_state),
+                        )
+                        all_blocks.append(child_block)
+
+                    current_part = []
+
+                # Cập nhật phân cấp ngữ cảnh cho khối MỚI
+                current_header_content = stripped_line
+                header_level = self._detect_heading_level(stripped_line)
+
+                if header_level == "chapter":
+                    hierarchy_state["chapter"] = stripped_line
+                    hierarchy_state["section"] = ""
+                    hierarchy_state["subsection"] = ""
+                    hierarchy_state["smaller_subsection"] = ""
+                elif header_level == "section":
+                    hierarchy_state["section"] = stripped_line
+                    hierarchy_state["subsection"] = ""
+                    hierarchy_state["smaller_subsection"] = ""
+                elif header_level == "subsection":
+                    hierarchy_state["subsection"] = stripped_line
+                    hierarchy_state["smaller_subsection"] = ""
+                elif header_level == "smaller_subsection":
+                    hierarchy_state["subsection"] = stripped_line
+                    hierarchy_state["smaller_subsection"] = stripped_line
+
+                current_part.append(line.rstrip())
             else:
-                # Add to current group
-                current_group.append(s)
-                current_length += sep_length + s_length
-        
-        # Don't forget the last group
-        if current_group:
-            merged = separator.join(current_group)
-            if merged:
-                merged_chunks.append(merged)
-        
-        return merged_chunks
+                current_part.append(line.rstrip())
+
+        # 3. Đóng gói khối cuối cùng còn lại trong buffer
+        if current_part:
+            content = "\n".join(current_part).strip()
+            if content:
+                child_block = self._build_block(
+                    texts=current_part,
+                    parent_block=block,
+                    header_content=current_header_content,
+                    hierarchy=dict(hierarchy_state),
+                )
+                all_blocks.append(child_block)
+
+        return all_blocks
+
 
     def _detect_heading_level(self, line: str) -> Optional[str]:
         candidate = line.strip()
-        if re.match(self.heading_patterns["chapter"], candidate):
+        if re.match(self.chapter_pattern, candidate):
             return "chapter"
-        if re.match(self.heading_patterns["section"], candidate):
-            return "section"
-        if re.match(self.heading_patterns["subsection"], candidate):
-            return "subsection"
         return None
 
     def _create_document_chunk(
         self,
-        text: str,
         parent_block: StructuralBlock,
         chunk_index: int,
     ) -> Document:
+        text = parent_block.text
         metadata = {
             "source": parent_block.source,
             "start_page": parent_block.start_page,
